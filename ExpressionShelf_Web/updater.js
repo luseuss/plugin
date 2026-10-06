@@ -2,7 +2,7 @@
 (function (global) {
   'use strict';
 
-  const CURRENT_VERSION = '0.6.1';
+  const CURRENT_VERSION = '0.6.2';
   const REPOSITORY = 'luseuss/plugin';
   const FEED_URL = 'https://github.com/' + REPOSITORY + '/releases/latest/download/latest.json';
   const MAX_ZIP_BYTES = 25 * 1024 * 1024;

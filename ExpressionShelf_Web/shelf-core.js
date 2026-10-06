@@ -6,7 +6,8 @@ var ESCore = (function () {
     var TARGET_NAMES = ['위치', '크기', 'Z 회전', '불투명도', '기준점'];
     // Effect sections: the panel adds (or reuses) an effect with this label and drives its first property.
     var EFFECTS = [{name: '블러', fx: 'ADBE Gaussian Blur 2', label: 'ES 블러'},
-                   {name: '와이프', fx: 'ADBE Linear Wipe', label: 'ES 와이프'}];
+                   {name: '와이프', fx: 'ADBE Linear Wipe', label: 'ES 와이프'},
+                   {name: '원형 와이프', fx: 'ADBE Radial Wipe', label: 'ES 원형 와이프'}];
     var CATS = ['등장·퇴장', '이동', '확대·축소', '회전', '탄성·반동', '강조', '반복(루프)', '텍스트', '트랜지션'];
     var CAT_SHORT = ['등장', '이동', '크기', '회전', '탄성', '강조', '루프', '텍스트', '전환'];
     var FEELS = ['부드러움', '경쾌함', '통통 튐', '무거움', '일정함'];
@@ -258,6 +259,20 @@ var ESCore = (function () {
             function () { return [['와이프', '100 * (1 - p);']]; }),
         transition('tr_spin', '스핀 줌 전환', '경쾌함', 800, 'easeOutCubic', '작고 회전된 다음 장면이 커지며 원래 각도에 멈춥니다.', [param('시작 각도 (도)', -90, -720, 720), param('시작 크기 (%)', 60, 1, 200)],
             function (v) { return [['불투명도', 'value * p;'], ['크기', 'var s = (' + n(v[1]) + ' + (100 - ' + n(v[1]) + ') * p) / 100;\nES_mul(value, s, s);'], ['Z 회전', 'value + (' + n(v[0]) + ') * (1 - p);']]; })
+    ]);
+    BUILTINS = BUILTINS.concat([
+        transition('tr_iris', '원형 와이프', '부드러움', 750, 'easeInOutCubic', '화면 중앙에서 원이 열리며 다음 장면을 드러냅니다. 적용하면 다음 장면에 ES 원형 와이프 효과가 추가됩니다.', [],
+            function () { return [['원형 와이프', '100 * (1 - p);']]; }),
+        transition('tr_whip', '휩 팬', '경쾌함', 420, 'easeOutCubic', '다음 장면이 빠르게 옆에서 들어오며 방향 블러가 풀립니다.', [param('블러 (px)', 55, 0, 300)],
+            function (v) { return [['불투명도', 'value * p;'], ['위치', 'ES_add(value, thisComp.width * (1 - p), thisComp.height * 0.035 * Math.sin(Math.PI * p));'], ['블러', n(v[0]) + ' * Math.sin(Math.PI * p);']]; }),
+        transition('tr_diagonal', '대각선 슬라이드', '경쾌함', 680, 'easeInOutCubic', '다음 장면이 오른쪽 위에서 대각선으로 들어오며 이전 장면을 덮습니다.', [],
+            function () { return [['불투명도', 'value * p;'], ['위치', 'ES_add(value, thisComp.width * (1 - p), -thisComp.height * 0.65 * (1 - p));']]; }),
+        transition('tr_roll', '롤 인', '경쾌함', 720, 'easeOutCubic', '아래에서 올라오며 살짝 기울어진 다음 장면이 회전과 함께 제자리에 멈춥니다.', [param('회전 각도 (도)', 24, -180, 180), param('이동 거리 (%)', 65, 0, 150)],
+            function (v) { return [['불투명도', 'value * p;'], ['위치', 'ES_add(value, 0, thisComp.height * ' + n(v[1]) + ' / 100 * (1 - p));'], ['Z 회전', 'value - ' + n(v[0]) + ' * (1 - p);']]; }),
+        transition('tr_overshoot_zoom', '오버슈트 줌', '통통 튐', 780, 'easeOutCubic', '작은 화면이 빠르게 커지며 목표 크기를 살짝 넘었다가 100%에 멈춥니다.', [param('시작 크기 (%)', 65, 1, 100), param('넘침 (%)', 18, 0, 60)],
+            function (v) { return [['불투명도', 'value * p;'], ['크기', 'var q = Math.max(0, Math.min(1, p));\nvar s = (' + n(v[0]) + ' + (100 - ' + n(v[0]) + ') * q) / 100 + ' + n(v[1]) + ' / 100 * Math.sin(Math.PI * q);\nES_mul(value, s, s);']]; }),
+        transition('tr_focus_zoom', '포커스 줌', '부드러움', 900, 'easeInOutSine', '살짝 확대되고 흐린 다음 장면이 선명해지며 원래 크기에 안착합니다.', [param('시작 크기 (%)', 112, 100, 160), param('블러 (px)', 36, 0, 300)],
+            function (v) { return [['불투명도', 'value * p;'], ['크기', 'var s = (' + n(v[0]) + ' + (100 - ' + n(v[0]) + ') * p) / 100;\nES_mul(value, s, s);'], ['블러', n(v[1]) + ' * (1 - p);']]; })
     ]);
     BUILTINS = BUILTINS.concat([
         transition('tr_glitch', '글리치 전환', '경쾌함', 450, 'linear', '화면이 가로로 튀고 늘어나며 순간적으로 깜빡이는 디지털 전환입니다. R/G/B 채널 잔상을 분리하고 색 플래시를 더합니다. RGB 3개와 색 플래시 1개 보조 레이어가 생성됩니다.',

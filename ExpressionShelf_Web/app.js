@@ -63,7 +63,7 @@
   }
 
   // ---------------------------------------------------------------- preview renderer
-  const BASE = { '위치': [0, 0], '크기': [100, 100], 'Z 회전': 0, '불투명도': 100, '기준점': [0, 0], '블러': 0, '와이프': 0 };
+  const BASE = { '위치': [0, 0], '크기': [100, 100], 'Z 회전': 0, '불투명도': 100, '기준점': [0, 0], '블러': 0, '와이프': 0, '원형 와이프': 0 };
   const LEAD = 0.35;
   function cycleFor(preset, ms) {
     const continuous = preset.cat === 6 || preset.id === 'text_wave';
@@ -186,12 +186,12 @@
       }
       const pos = v['위치'] || [0, 0], an = v['기준점'] || [0, 0], s = v['크기'] || [100, 100];
       const rot = v['Z 회전'] || 0, op = v['불투명도'] === undefined ? 100 : v['불투명도'];
-      const blur = Math.max(0, v['블러'] || 0), wipe = clamp(v['와이프'] || 0, 0, 100);
+      const blur = Math.max(0, v['블러'] || 0), wipe = clamp(v['와이프'] || 0, 0, 100), radialWipe = clamp(v['원형 와이프'] || 0, 0, 100);
       const st = this.root.style;
       st.transform = `translate(${(pos[0] - an[0]) * k}px, ${(pos[1] - an[1]) * k}px) rotate(${rot}deg) scale(${s[0] / 100}, ${s[1] / 100})`;
       st.opacity = clamp(op / 100, 0, 1);
       st.filter = blur > 0.05 ? `blur(${blur * k}px)` : 'none';
-      st.clipPath = wipe > 0.05 ? `inset(0 0 0 ${wipe}%)` : 'none';
+      st.clipPath = radialWipe > 0.05 ? `circle(${(100 - radialWipe) * 0.75}% at 50% 50%)` : wipe > 0.05 ? `inset(0 0 0 ${wipe}%)` : 'none';
     }
     renderGlitch(ctx, k) {
       for (let i=0;i<3;i++) {
