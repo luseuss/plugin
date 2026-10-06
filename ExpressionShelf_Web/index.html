@@ -26,16 +26,14 @@
       <input id="search" type="search" placeholder="모션·트랜지션·이징 검색  (예: bounce)" autocomplete="off">
       <kbd>/</kbd>
     </label>
-    <div class="target" id="target">
+    <div class="target" id="target" title="적용할 레이어를 에펙 타임라인에서 선택한 뒤 적용 버튼을 누르세요">
       <span class="dot"></span>
-      <span class="target-text" id="targetText">적용 대상 없음</span>
-      <button class="chip-btn" id="bindBtn" title="에펙에서 선택한 레이어를 적용 대상으로 기억합니다">선택 레이어 지정</button>
-      <button class="icon-btn small" id="openTargetBtn" title="작업 컴포지션 열기" aria-label="작업 컴포지션 열기">↩</button>
+      <span class="target-text" id="targetText">타임라인에서 레이어 선택 후 적용</span>
     </div>
   </header>
 
   <div class="update-bar" id="updateBar" role="status" aria-live="polite">
-    <span id="updateStatus">버전 확인: v0.6.2</span>
+    <span id="updateStatus">버전 확인: v0.6.3</span>
     <button class="chip-btn" id="checkUpdateBtn">업데이트 확인</button>
     <button class="chip-btn update-install" id="installUpdateBtn" hidden>다운로드 및 설치 예약</button>
   </div>
@@ -123,7 +121,7 @@
         <div class="stage big" id="dStage"></div>
         <div class="timeline" id="dTimeline"><i></i></div>
         <p class="d-desc" id="dDesc"></p>
-        <p class="transition-help" id="transitionHelp" hidden><strong>A → B 장면 전환</strong><br>다음 장면 B를 A보다 위에 놓고, 전환 시간만큼 겹치세요. <b>B 레이어만 지정</b>하여 적용합니다. 시작 지연은 B의 시작점 기준입니다. 여러 요소로 된 장면은 먼저 프리컴프하세요. 레이어 길이와 순서는 자동으로 바꾸지 않습니다. 다른 전환으로 바꿀 때는 기존 전환을 실행 취소한 뒤 적용하세요.</p>
+        <p class="transition-help" id="transitionHelp" hidden><strong>A → B 장면 전환</strong><br>다음 장면 B를 A보다 위에 놓고, 전환 시간만큼 겹치세요. 에펙 타임라인에서 <b>B 레이어를 선택한 뒤 적용</b>합니다. 시작 지연은 B의 시작점 기준입니다. 여러 요소로 된 장면은 먼저 프리컴프하세요. 레이어 길이와 순서는 자동으로 바꾸지 않습니다. 다른 전환으로 바꿀 때는 기존 전환을 실행 취소한 뒤 적용하세요.</p>
 
         <section class="sec" id="secTiming">
           <h3>타이밍</h3>

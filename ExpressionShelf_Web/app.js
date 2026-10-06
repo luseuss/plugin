@@ -337,7 +337,7 @@
     $('#dDesc').textContent = p.desc;
     $('#transitionHelp').hidden = !p.transition;
     $('#exampleSection').hidden = !!p.transition;
-    $('#applyBtn').textContent = p.transition ? '지정한 다음 장면에 적용' : '지정한 레이어에 적용';
+    $('#applyBtn').textContent = p.transition ? '선택한 다음 장면에 적용' : '선택 레이어에 적용';
     // timing
     const timed = p.ms !== null;
     $('#secTiming').hidden = !timed;
@@ -446,12 +446,6 @@
     p = p.replace(/^file:\/{2,3}/, '');
     return decodeURIComponent(p);
   }
-  function showTarget(t) {
-    const on = t && t.count > 0;
-    $('#target').classList.toggle('on', !!on);
-    $('#targetText').textContent = on ? t.comp + ' · ' + t.count + '개 레이어' : '적용 대상 없음';
-    $('#targetText').title = on ? t.layers.join('\n') : '';
-  }
   function payload() {
     const p = state.sel;
     return toHostLiteral({
@@ -556,12 +550,6 @@
       state.code = e.target.value; state.dirty = true; $('#dirty').hidden = false;
       rebuildDetailPreview();
     };
-    $('#bindBtn').onclick = () => withBusy($('#bindBtn'), async () => {
-      const r = await callHost('ES_bind');
-      if (!r.ok) { toast(r.error, r.offline ? 'warn' : 'err'); return; }
-      showTarget(r.target); toast('적용 대상을 기억했습니다: ' + r.target.count + '개 레이어', 'ok');
-    });
-    $('#openTargetBtn').onclick = async () => { const r = await callHost('ES_openTarget'); if (!r.ok) toast(r.error, r.offline ? 'warn' : 'err'); };
     $('#aePreviewBtn').onclick = () => withBusy($('#aePreviewBtn'), async () => {
       const r = await callHost('ES_preview', payload());
       toast(r.ok ? '에펙에 미리보기 컴포지션을 만들었습니다.' : r.error, r.ok ? 'ok' : r.offline ? 'warn' : 'err');
@@ -610,7 +598,6 @@
     }
     const r = await callHost('ES_init', toHostLiteral(extensionPath()));
     if (!r.ok) { toast('에펙 연결 실패: ' + r.error, 'err'); return; }
-    showTarget(r.target);
   }
   init();
 })();

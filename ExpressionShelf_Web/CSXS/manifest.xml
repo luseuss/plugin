@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ExtensionManifest Version="7.0" ExtensionBundleId="com.expressionshelf.web" ExtensionBundleVersion="0.6.2" ExtensionBundleName="Expression Shelf Web"
+<ExtensionManifest Version="7.0" ExtensionBundleId="com.expressionshelf.web" ExtensionBundleVersion="0.6.3" ExtensionBundleName="Expression Shelf Web"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <ExtensionList>
-        <Extension Id="com.expressionshelf.web.panel" Version="0.6.2"/>
+        <Extension Id="com.expressionshelf.web.panel" Version="0.6.3"/>
     </ExtensionList>
     <ExecutionEnvironment>
         <HostList>

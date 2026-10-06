@@ -292,22 +292,31 @@ function ES_preview(d) {
 function ES_apply(d) {
     return ES_call(function () {
         ES_prepare(d);
-        var j, r, ok = 0, skip = 0, fail = 0, lines = [], name, delay, t = ES_STATE.targets;
-        if (!ES_validComp(ES_STATE.comp) || !t.length) { throw new Error('작업 레이어들을 선택한 뒤 적용 대상으로 지정하세요.'); }
+        // Read the active comp's live selection at Apply time. This lets users
+        // choose layers in the timeline and apply directly without binding first.
+        var c = app.project ? app.project.activeItem : null;
+        var j, r, ok = 0, skip = 0, fail = 0, lines = [], name, delay, t = [], selected, i;
+        if (!ES_validComp(c)) { throw new Error('작업 컴포지션을 열고 레이어를 선택하세요.'); }
+        if (c.comment === ES_PREVIEW_TAG) { throw new Error('미리보기 컴포지션에는 적용할 수 없습니다. 작업 컴포지션을 선택하세요.'); }
+        selected = c.selectedLayers;
+        for (i = 0; i < selected.length; i++) { t.push(selected[i]); }
+        if (!t.length) { throw new Error('에펙 타임라인에서 적용할 레이어를 선택하세요.'); }
+        t.sort(function (a, b) { return a.index - b.index; });
+        ES_STATE.comp = c; ES_STATE.targets = t;
         app.beginUndoGroup('Expression Shelf Apply');
         try {
             for (j = 0; j < t.length; j++) {
                 name = '지정 대상 ' + (j + 1); delay = d.start + j * d.stagger;
                 try {
                     name = '#' + t[j].index + ' ' + t[j].name;
-                    if (t[j].containingComp !== ES_STATE.comp) { throw new Error('대상 레이어가 변경되었습니다. 다시 지정하세요.'); }
-                    r = ES_install(t[j], d, delay, !!d.overwrite, ES_STATE.comp.time);
+                    if (t[j].containingComp !== c) { throw new Error('대상 레이어가 변경되었습니다. 다시 선택하세요.'); }
+                    r = ES_install(t[j], d, delay, !!d.overwrite, c.time);
                     if (r.skip) { skip++; lines.push(name + ' · 건너뜀: ' + r.message); }
                     else { ok++; lines.push(name + ' · 적용 완료 (지연 ' + delay.toFixed(2) + '초)'); }
                 } catch (err) { fail++; lines.push(name + ' · 오류: ' + String(err)); }
             }
         } finally { app.endUndoGroup(); }
-        ES_STATE.comp.openInViewer();
+        c.openInViewer();
         return {applied: ok, skipped: skip, failed: fail, lines: lines};
     });
 }
