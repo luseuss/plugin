@@ -3,6 +3,13 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'manifest.xml 버전과 같은 태그 (예: v0.6.1)'
+        required: true
+        type: string
+        default: v0.6.1
 permissions:
   contents: write
 concurrency:
@@ -24,11 +31,37 @@ jobs:
           node tests/updater.test.js
       - name: Build ZIP and update metadata
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
         run: python3 scripts/build_release.py --repository "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG"
-      - name: Create draft with verified assets
+      - name: Create or verify release tag for manual run
+        if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
-          gh release create "$RELEASE_TAG" dist/ExpressionShelf_Web.zip dist/latest.json dist/SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --verify-tag --draft --title "Expression Shelf $RELEASE_TAG" --notes-file RELEASE_NOTES.md
+          set -euo pipefail
+          ref="repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG"
+          if existing=$(gh api "$ref" 2>/dev/null); then
+            object_type=$(printf '%s' "$existing" | jq -r '.object.type')
+            object_sha=$(printf '%s' "$existing" | jq -r '.object.sha')
+            if [ "$object_type" = "tag" ]; then
+              object_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$object_sha" --jq '.object.sha')
+            fi
+            if [ "$object_sha" != "$GITHUB_SHA" ]; then
+              echo "Tag $RELEASE_TAG already points to a different commit. Choose a new version or push the matching tag."
+              exit 1
+            fi
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f "ref=refs/tags/$RELEASE_TAG" -f "sha=$GITHUB_SHA"
+          fi
+      - name: Create draft or attach verified assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
+        run: |
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" dist/ExpressionShelf_Web.zip dist/latest.json dist/SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$RELEASE_TAG" dist/ExpressionShelf_Web.zip dist/latest.json dist/SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --verify-tag --draft --title "Expression Shelf $RELEASE_TAG" --notes-file RELEASE_NOTES.md
+          fi
