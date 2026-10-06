@@ -84,6 +84,12 @@ button { cursor: pointer; }
 .target-text { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
 .target.on .target-text { color: var(--text); }
 
+.update-bar { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 16px 7px; color: var(--muted); font-size: 11px; }
+.update-bar span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.update-bar .chip-btn { height: 25px; font-size: 11px; }
+.update-bar .update-install { border-color: rgba(52, 211, 153, 0.42); color: var(--accent); }
+.update-bar button[hidden] { display: none; }
+
 .chip-btn {
   height: 26px; padding: 0 10px; border-radius: 7px; border: 1px solid var(--line-2);
   background: rgba(255, 255, 255, 0.05); white-space: nowrap; font-size: 12px;

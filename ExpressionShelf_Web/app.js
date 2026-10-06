@@ -499,6 +499,36 @@
       if (!r.ok) { $('#lbStatus').textContent = r.error; $('#lbStatus').classList.add('bad'); toast(r.error, r.offline ? 'warn' : 'err'); return; }
       $('#lbStatus').classList.remove('bad'); $('#lbStatus').textContent = `생성 완료: ${r.name} · ${r.ratio}:1 · 막대 높이 ${r.barPercent}% · ${r.color} · 페이드 ${r.fade}초 (Ctrl+Z로 취소)`;
     });
+    $('#checkUpdateBtn').onclick = async () => {
+      const button = $('#checkUpdateBtn'), status = $('#updateStatus');
+      button.disabled = true; $('#installUpdateBtn').hidden = true; status.textContent = 'GitHub에서 업데이트 확인 중…';
+      try {
+        const result = await window.ESUpdater.check();
+        if (result.available) {
+          status.textContent = `새 버전 v${result.latest.version}을 찾았습니다. (현재 v${result.currentVersion})`;
+          $('#installUpdateBtn').hidden = false; $('#installUpdateBtn')._feed = result.latest;
+          toast('새 버전 v' + result.latest.version + '을 사용할 수 있습니다.', 'ok');
+        } else status.textContent = `최신 버전입니다 · v${result.currentVersion}`;
+      } catch (e) {
+        status.textContent = '업데이트 확인 실패';
+        toast(String(e && e.message || e), 'err');
+      } finally { button.disabled = false; }
+    };
+    $('#installUpdateBtn').onclick = async () => {
+      const button = $('#installUpdateBtn'), feed = button._feed;
+      if (!feed) return;
+      if (!window.confirm(`v${feed.version} 업데이트 파일을 내려받아 검사한 뒤 설치를 예약합니다. 작업 중인 프로젝트를 저장하고 After Effects를 종료하면 자동으로 설치됩니다. 계속할까요?`)) return;
+      button.disabled = true; $('#updateStatus').textContent = `v${feed.version} 다운로드 및 파일 검사 중…`;
+      try {
+        const result = await window.ESUpdater.downloadAndSchedule(feed, extensionPath());
+        $('#updateStatus').textContent = `v${result.version} 설치 예약 완료 · 프로젝트 저장 후 After Effects를 종료하세요.`;
+        button.hidden = true;
+        toast('파일 검사 완료. After Effects를 종료하면 업데이트가 설치됩니다.', 'ok');
+      } catch (e) {
+        $('#updateStatus').textContent = '업데이트 설치 예약 실패';
+        toast(String(e && e.message || e), 'err');
+      } finally { button.disabled = false; }
+    };
     $('#search').addEventListener('input', (e) => { state.q = e.target.value; if (state.scope === 'typo' && typoShelf) typoShelf.search(state.q); else renderGrid(); });
     document.addEventListener('keydown', (e) => {
       if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') { e.preventDefault(); $('#search').focus(); }
@@ -566,7 +596,18 @@
     if (window.ESTypo) typoShelf = window.ESTypo({call:callHost, literal:toHostLiteral, busy:withBusy});
     wire();
     requestAnimationFrame(frame);
-    if (!cep) { $('#banner').hidden = false; return; }
+    $('#updateStatus').textContent = '현재 버전 v' + window.ESUpdater.currentVersion;
+    if (!cep) { $('#banner').hidden = false; $('#updateStatus').textContent = '업데이트 확인은 After Effects 패널에서 사용할 수 있습니다.'; $('#checkUpdateBtn').disabled = true; return; }
+    const updateResult = window.ESUpdater.consumeResult();
+    if (updateResult) {
+      if (/^v\d+\.\d+\.\d+$/.test(updateResult)) {
+        $('#updateStatus').textContent = `업데이트 설치 완료 · ${updateResult}`;
+        toast(`${updateResult} 업데이트 설치가 완료됐습니다.`, 'ok');
+      } else if (updateResult.indexOf('ERROR:') === 0) {
+        $('#updateStatus').textContent = '업데이트 설치에 실패했습니다.';
+        toast(updateResult, 'err');
+      }
+    }
     const r = await callHost('ES_init', toHostLiteral(extensionPath()));
     if (!r.ok) { toast('에펙 연결 실패: ' + r.error, 'err'); return; }
     showTarget(r.target);

@@ -19,7 +19,10 @@ def build(repository, tag):
         raise ValueError('Release tag must match ExtensionBundleVersion: v' + version)
     if manifest.find('ExtensionList/Extension').attrib['Version'] != version:
         raise ValueError('Extension version mismatch')
-    for name in ['index.html', 'app.js', 'typo.js', 'host/host.jsx', 'host/typo.jsx', '설치하기.bat']:
+    updater = (source / 'updater.js').read_text(encoding='utf-8')
+    if "const CURRENT_VERSION = '" + version + "';" not in updater:
+        raise ValueError('Updater version must match ExtensionBundleVersion')
+    for name in ['index.html', 'app.js', 'updater.js', 'typo.js', 'host/host.jsx', 'host/typo.jsx', '설치하기.bat']:
         if not (source / name).is_file():
             raise ValueError('Missing package file: ' + name)
     out = ROOT / 'dist'

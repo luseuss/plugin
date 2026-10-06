@@ -18,8 +18,10 @@ jobs:
       - name: Check panel JavaScript
         run: |
           node --check ExpressionShelf_Web/app.js
+          node --check ExpressionShelf_Web/updater.js
           node --check ExpressionShelf_Web/typo.js
           node --check ExpressionShelf_Web/shelf-core.js
+          node tests/updater.test.js
       - name: Build ZIP and update metadata
         env:
           RELEASE_TAG: ${{ github.ref_name }}
