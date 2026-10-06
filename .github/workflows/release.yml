@@ -9,7 +9,7 @@ on:
         description: 'manifest.xml 버전과 같은 태그 (예: v0.6.1)'
         required: true
         type: string
-        default: v0.6.3
+        default: v0.6.4
 permissions:
   contents: write
 concurrency:

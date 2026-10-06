@@ -515,9 +515,9 @@
       button.disabled = true; $('#updateStatus').textContent = `v${feed.version} 다운로드 및 파일 검사 중…`;
       try {
         const result = await window.ESUpdater.downloadAndSchedule(feed, extensionPath());
-        $('#updateStatus').textContent = `v${result.version} 설치 예약 완료 · 프로젝트 저장 후 After Effects를 종료하세요.`;
+        $('#updateStatus').textContent = `v${result.version} 설치 도우미 실행 확인 · 프로젝트 저장 후 After Effects를 완전히 종료하세요.`;
         button.hidden = true;
-        toast('파일 검사 완료. After Effects를 종료하면 업데이트가 설치됩니다.', 'ok');
+        toast('다운로드 검사와 설치 도우미 실행을 확인했습니다. 프로젝트를 저장하고 After Effects를 완전히 종료하세요.', 'ok');
       } catch (e) {
         $('#updateStatus').textContent = '업데이트 설치 예약 실패';
         toast(String(e && e.message || e), 'err');
@@ -594,6 +594,15 @@
       } else if (updateResult.indexOf('ERROR:') === 0) {
         $('#updateStatus').textContent = '업데이트 설치에 실패했습니다.';
         toast(updateResult, 'err');
+      }
+    } else {
+      const log = window.ESUpdater.readInstallLog();
+      if (log) {
+        const lines = log.split(/\r?\n/).filter(Boolean);
+        const last = lines[lines.length - 1] || '';
+        const time = last.match(/^(\S+\s+\S+)/);
+        const message = last.replace(/^\S+\s+\S+\s*/, '');
+        $('#updateStatus').textContent = `업데이트 도우미 로그${time ? ' · ' + time[1] : ''}: ${message || last} (임시 폴더: %TEMP%\\ExpressionShelf_update_log.txt)`;
       }
     }
     const r = await callHost('ES_init', toHostLiteral(extensionPath()));

@@ -2,7 +2,7 @@
 (function (global) {
   'use strict';
 
-  const CURRENT_VERSION = '0.6.3';
+  const CURRENT_VERSION = '0.6.4';
   const REPOSITORY = 'luseuss/plugin';
   const FEED_URL = 'https://github.com/' + REPOSITORY + '/releases/latest/download/latest.json';
   const MAX_ZIP_BYTES = 25 * 1024 * 1024;
@@ -73,6 +73,7 @@
     const path = modules.path, fs = modules.fs, os = modules.os, child = modules.child;
     const stage = path.dirname(zipPath);
     const resultPath = path.join(os.tmpdir(), 'ExpressionShelf_update_result.txt');
+    const logPath = path.join(os.tmpdir(), 'ExpressionShelf_update_log.txt');
     const psPath = path.join(stage, 'install-after-ae-exits.ps1');
     const script = [
       "$ErrorActionPreference = 'Stop'",
@@ -80,28 +81,60 @@
       "$zip = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('" + b64(zipPath) + "'))",
       "$dest = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('" + b64(extensionFolder) + "'))",
       "$result = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('" + b64(resultPath) + "'))",
+      "$log = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('" + b64(logPath) + "'))",
       "$version = 'v" + feed.version + "'",
       "$utf8 = [System.Text.UTF8Encoding]::new($false)",
+      "function Write-UpdateLog([string]$message) { Add-Content -LiteralPath $log -Value ((Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + ' ' + $message) -Encoding UTF8 }",
+      "Write-UpdateLog 'PowerShell 설치 도우미 시작'",
       "try {",
+      "  Write-UpdateLog 'After Effects 종료 대기'",
       "  while (Get-Process -Name 'AfterFX' -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }",
+      "  Write-UpdateLog 'After Effects 종료 확인'",
       "  $extract = Join-Path $stage 'extracted'",
       "  Expand-Archive -LiteralPath $zip -DestinationPath $extract -Force",
       "  $source = Join-Path $extract 'ExpressionShelf_Web'",
       "  if (!(Test-Path (Join-Path $source 'CSXS\\manifest.xml'))) { throw '설치 파일에 CEP 확장 manifest가 없습니다.' }",
+      "  Write-UpdateLog ('파일 복사 시작: ' + $dest)",
       "  New-Item -ItemType Directory -Path $dest -Force | Out-Null",
       "  & robocopy.exe $source $dest /MIR /XD tools /XF '*.bat' 'README*.txt' | Out-Null",
       "  if ($LASTEXITCODE -ge 8) { throw ('파일 복사 실패: robocopy ' + $LASTEXITCODE) }",
       "  [IO.File]::WriteAllText($result, $version, $utf8)",
+      "  Write-UpdateLog ('설치 완료: ' + $version)",
       "} catch {",
+      "  Write-UpdateLog ('설치 실패: ' + $_.Exception.Message)",
       "  [IO.File]::WriteAllText($result, ('ERROR: ' + $_.Exception.Message), $utf8)",
-      "} finally { Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue }"
+      "} finally {",
+      "  Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue",
+      "  Write-UpdateLog '설치 도우미 종료'",
+      "}"
     ].join('\r\n');
+    fs.writeFileSync(logPath, new Date().toISOString() + ' PowerShell 설치 도우미 실행 요청\n', 'utf8');
     fs.writeFileSync(psPath, script, 'utf8');
-    const proc = child.spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', psPath], { detached: true, stdio: 'ignore', windowsHide: true });
-    proc.on('error', (error) => {
-      try { fs.writeFileSync(resultPath, 'ERROR: 설치 도우미를 실행하지 못했습니다. ' + error.message, 'utf8'); } catch (e) {}
+    return new Promise((resolve, reject) => {
+      let proc;
+      try {
+        proc = child.spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', psPath], { detached: true, stdio: 'ignore', windowsHide: true });
+      } catch (error) {
+        try {
+          fs.writeFileSync(resultPath, 'ERROR: 설치 도우미를 실행하지 못했습니다. ' + error.message, 'utf8');
+          fs.appendFileSync(logPath, new Date().toISOString() + ' PowerShell 실행 실패: ' + error.message + '\n', 'utf8');
+        } catch (e) {}
+        reject(new Error('설치 도우미를 실행하지 못했습니다: ' + error.message));
+        return;
+      }
+      proc.once('spawn', () => {
+        try { fs.appendFileSync(logPath, new Date().toISOString() + ' PowerShell 프로세스 시작 확인\n', 'utf8'); } catch (e) {}
+        proc.unref();
+        resolve();
+      });
+      proc.once('error', (error) => {
+        try {
+          fs.writeFileSync(resultPath, 'ERROR: 설치 도우미를 실행하지 못했습니다. ' + error.message, 'utf8');
+          fs.appendFileSync(logPath, new Date().toISOString() + ' PowerShell 실행 실패: ' + error.message + '\n', 'utf8');
+        } catch (e) {}
+        reject(new Error('설치 도우미를 실행하지 못했습니다: ' + error.message));
+      });
     });
-    proc.unref();
   }
 
   async function downloadAndSchedule(feed, extensionFolder) {
@@ -116,7 +149,7 @@
     modules.fs.mkdirSync(stage, { recursive: true });
     const zipPath = modules.path.join(stage, 'ExpressionShelf_Web.zip');
     modules.fs.writeFileSync(zipPath, zip);
-    try { scheduleInstall(modules, feed, zipPath, extensionFolder); }
+    try { await scheduleInstall(modules, feed, zipPath, extensionFolder); }
     catch (e) { modules.fs.rmSync(stage, { recursive: true, force: true }); throw e; }
     return { version: feed.version };
   }
@@ -132,5 +165,14 @@
     } catch (e) { return ''; }
   }
 
-  global.ESUpdater = { currentVersion: CURRENT_VERSION, compareVersions, validateFeed, check, downloadAndSchedule, consumeResult };
+  function readInstallLog() {
+    try {
+      const modules = nodeModules();
+      const file = modules.path.join(modules.os.tmpdir(), 'ExpressionShelf_update_log.txt');
+      if (!modules.fs.existsSync(file)) return '';
+      return modules.fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '').trim().slice(-6000);
+    } catch (e) { return ''; }
+  }
+
+  global.ESUpdater = { currentVersion: CURRENT_VERSION, compareVersions, validateFeed, check, downloadAndSchedule, consumeResult, readInstallLog };
 }(window));
