@@ -1,0 +1,9 @@
+dist/
+__pycache__/
+*.pyc
+*.aep
+*.aepx
+*.aet
+.env
+.env.*
+Typography/
