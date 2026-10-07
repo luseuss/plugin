@@ -299,6 +299,10 @@ textarea {
 .rgb-pass, .glitch-flash { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen; opacity: 0; }
 .rgb-pass { z-index: 2; transform-origin: 50% 50%; will-change: transform, opacity; }
 .glitch-flash { z-index: 3; }
+.transition-overlay { position: absolute; inset: 0; z-index: 3; pointer-events: none; will-change: transform, opacity; }
+.transition-overlay.tr_film_burn { background: radial-gradient(ellipse at 42% 50%, rgba(255,246,175,.92) 0%, rgba(255,116,20,.76) 28%, rgba(220,42,4,.28) 58%, transparent 78%); filter: blur(9px); mix-blend-mode: screen; }
+.transition-overlay.tr_flash_cut { background: #fff; mix-blend-mode: screen; }
+.transition-overlay.tr_color_sweep { background: linear-gradient(90deg, transparent 0%, rgba(55,20,190,.55) 18%, rgba(22,224,255,.78) 40%, rgba(104,255,193,.66) 58%, rgba(199,42,255,.78) 78%, transparent 100%); filter: blur(6px); mix-blend-mode: screen; }
 .transition-stage .stage-err { z-index: 5; }
 @supports (mix-blend-mode: plus-lighter) { .rgb-pass, .glitch-flash { mix-blend-mode: plus-lighter; } }
 

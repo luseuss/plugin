@@ -7,7 +7,10 @@ var ESCore = (function () {
     // Effect sections: the panel adds (or reuses) an effect with this label and drives its first property.
     var EFFECTS = [{name: '블러', fx: 'ADBE Gaussian Blur 2', label: 'ES 블러'},
                    {name: '와이프', fx: 'ADBE Linear Wipe', label: 'ES 와이프'},
-                   {name: '원형 와이프', fx: 'ADBE Radial Wipe', label: 'ES 원형 와이프'}];
+                   {name: '원형 와이프', fx: 'ADBE Radial Wipe', label: 'ES 원형 와이프'},
+                   {name: '셔터 와이프', fx: 'ADBE Venetian Blinds', label: 'ES 셔터 와이프'},
+                   {name: '셔터 폭', fx: 'ADBE Venetian Blinds', label: 'ES 셔터 와이프', index: 3},
+                   {name: '블록 디졸브', fx: 'ADBE Block Dissolve', label: 'ES 픽셀 디졸브'}];
     var CATS = ['등장·퇴장', '이동', '확대·축소', '회전', '탄성·반동', '강조', '반복(루프)', '텍스트', '트랜지션'];
     var CAT_SHORT = ['등장', '이동', '크기', '회전', '탄성', '강조', '루프', '텍스트', '전환'];
     var FEELS = ['부드러움', '경쾌함', '통통 튐', '무거움', '일정함'];
@@ -275,6 +278,28 @@ var ESCore = (function () {
             function (v) { return [['불투명도', 'value * p;'], ['크기', 'var s = (' + n(v[0]) + ' + (100 - ' + n(v[0]) + ') * p) / 100;\nES_mul(value, s, s);'], ['블러', n(v[1]) + ' * (1 - p);']]; })
     ]);
     BUILTINS = BUILTINS.concat([
+        transition('tr_center_split', '중앙 분할', '경쾌함', 620, 'easeInOutCubic', '가운데 얇은 틈에서 다음 장면이 좌우로 펼쳐집니다.', [param('시작 폭 (%)', 4, 0, 40)],
+            function (v) { return [['불투명도', 'value * p;'], ['크기', 'var s = (' + n(v[0]) + ' + (100 - ' + n(v[0]) + ') * p) / 100;\nES_mul(value, s, 1);']]; }),
+        transition('tr_shutter', '셔터 와이프', '일정함', 720, 'linear', '베네치안 블라인드가 순서대로 열리며 장면을 바꿉니다.', [param('블라인드 폭 (%)', 35, 5, 100)],
+            function (v) { return [['셔터 와이프', '100 * (1 - p);'], ['셔터 폭', n(v[0]) + ';']]; }),
+        transition('tr_soft_wipe', '소프트 엣지 와이프', '부드러움', 820, 'easeInOutSine', '부드러운 경계가 번지며 다음 장면을 드러냅니다.', [param('경계 페더 (px)', 180, 0, 800)],
+            function (v) { return [['불투명도', 'value * p;'], ['와이프', '100 * (1 - p);'], ['블러', n(v[0]) + ' * (1 - p);']]; }),
+        transition('tr_pixel', '픽셀 디졸브', '경쾌함', 700, 'easeInOutCubic', '불규칙한 블록이 녹아 사라지며 다음 장면을 드러냅니다.', [],
+            function () { return [['블록 디졸브', '100 * (1 - p);']]; }),
+        transition('tr_film_burn', '필름 번', '부드러움', 1050, 'easeInOutSine', '따뜻한 필름 빛이 번지며 장면을 덮습니다. 따뜻한 오버레이 레이어가 함께 생성됩니다.', [param('빛 강도 (%)', 85, 0, 100), param('번짐 폭 (%)', 100, 40, 180)],
+            function () { return [['불투명도', 'value * Math.min(1, Math.max(0, t / D));']]; }),
+        transition('tr_flash_cut', '플래시 컷', '경쾌함', 420, 'easeOutCubic', '짧은 백색 플래시를 사이에 두고 장면이 바뀝니다. 플래시 오버레이가 함께 생성됩니다.', [param('플래시 강도 (%)', 95, 0, 100)],
+            function () { return [['불투명도', 'value * p;']]; }),
+        transition('tr_flicker_cut', '플리커 컷', '경쾌함', 500, 'linear', '빠른 점멸 뒤 다음 장면이 안정됩니다.', [param('깜빡임 횟수', 5, 1, 12)],
+            function (v) { return [['불투명도', 'var q = Math.min(1, Math.max(0, t / D));\nvar f = Math.floor(q * ' + n(v[0]) + ' * 2);\nvar blink = f % 2 === 0 ? 0 : 100;\nt < 0 ? 0 : t < D * 0.72 ? blink : value;']]; }),
+        transition('tr_page_flip', '페이지 넘김', '경쾌함', 760, 'easeInOutCubic', '얇아진 화면이 회전하며 페이지처럼 넘어옵니다.', [param('시작 각도 (도)', -78, -120, 120)],
+            function (v) { return [['불투명도', 'value * p;'], ['크기', 'var sx = 0.18 + 0.82 * p;\nES_mul(value, sx, 1);'], ['Z 회전', 'value + ' + n(v[0]) + ' * (1 - p);']]; }),
+        transition('tr_radial_zoom', '방사형 줌 블러', '경쾌함', 760, 'easeOutCubic', '중앙에서 빠르게 확대되며 잔상이 사라집니다.', [param('시작 크기 (%)', 155, 110, 260), param('블러 (px)', 48, 0, 240)],
+            function (v) { return [['불투명도', 'value * p;'], ['크기', 'var s = (' + n(v[0]) + ' + (100 - ' + n(v[0]) + ') * p) / 100;\nES_mul(value, s, s);'], ['Z 회전', 'value + 6 * (1 - p);'], ['블러', n(v[1]) + ' * (1 - p);']]; }),
+        transition('tr_color_sweep', '컬러 스윕', '경쾌함', 900, 'easeInOutSine', '청록·보라색 빛 띠가 화면을 가로질러 지나갑니다. 컬러 오버레이 레이어가 함께 생성됩니다.', [param('빛 강도 (%)', 70, 0, 100), param('띠 폭 (%)', 70, 20, 140)],
+            function () { return [['불투명도', 'value * Math.min(1, Math.max(0, t / D));']]; })
+    ]);
+    BUILTINS = BUILTINS.concat([
         transition('tr_glitch', '글리치 전환', '경쾌함', 450, 'linear', '화면이 가로로 튀고 늘어나며 순간적으로 깜빡이는 디지털 전환입니다. R/G/B 채널 잔상을 분리하고 색 플래시를 더합니다. RGB 3개와 색 플래시 1개 보조 레이어가 생성됩니다.',
             [param('떨림 (px)', 70, 0, 400), param('변화 횟수 (회/초)', 24, 1, 60), param('가로 왜곡 (%)', 12, 0, 60), param('RGB 분리 폭 (px)', 28, 0, 200), param('색 날림 (%)', 45, 0, 100)],
             function (v) {
@@ -296,6 +321,16 @@ var ESCore = (function () {
                     ['불투명도', 'var q = Math.min(1, Math.max(0, t / D));\n' + n(v[0]) + ' * Math.pow(Math.max(0, Math.sin(Math.PI * q)), 1.3);']];
             }};
         return buildCode(p, v, m);
+    }
+    function buildOverlayParts(recipe, v, m) {
+        var d = n(m.ms / 1000), head = 'var D = ' + d + ';\nvar t = time - inPoint - ES_DELAY;\nvar q = Math.min(1, Math.max(0, t / D));\nvar g = Math.pow(Math.max(0, Math.sin(Math.PI * q)), ', strength;
+        if (recipe === 'tr_film_burn') { strength = n(v[0]); }
+        else if (recipe === 'tr_flash_cut') { strength = n(v[0]); }
+        else if (recipe === 'tr_color_sweep') { strength = n(v[0]); }
+        else { throw new Error('전환 오버레이 종류를 찾을 수 없습니다.'); }
+        var pos = head + '1);\n[thisComp.width * (-0.18 + 1.36 * q), thisComp.height * 0.5];';
+        var amount = recipe === 'tr_flash_cut' ? 8 : recipe === 'tr_film_burn' ? 1.15 : 1.35;
+        return [{target:'위치', code:pos}, {target:'불투명도', code:head + amount + ');\n' + strength + ' * g;'}];
     }
     function glitchPrelude(v, m) {
         return 'var D = ' + n(m.ms / 1000) + ';\nvar t = time - inPoint - ES_DELAY;\nvar u = Math.max(0, t);\nvar q = Math.min(1, Math.max(0, t / D));\nvar g = t <= 0 || t >= D ? 0 : Math.sin(Math.PI * q);\nvar f = Math.floor(u * ' + n(v[1]) + ');\n';
@@ -474,7 +509,7 @@ var ESCore = (function () {
         var e = effectInfo(name), fx;
         if (!e) { return transformProp(layer, name); }
         fx = findEffect(layer, e.label);
-        return fx ? fx.property(1) : null;
+        return fx ? fx.property(e.index || 1) : null;
     }
     // All parts are checked first so a layer is either fully updated or skipped.
     function installLayer(layer, parts, delay, overwrite, time) {
@@ -528,6 +563,7 @@ var ESCore = (function () {
     return {TARGETS: TARGETS, TARGET_NAMES: TARGET_NAMES, EFFECTS: EFFECTS, CATS: CATS, CAT_SHORT: CAT_SHORT, FEELS: FEELS,
         EASES: EASES, BUILTINS: BUILTINS, buildLightCode: buildLightCode, buildRGBParts: buildRGBParts, buildGlitchFlash: buildGlitchFlash, buildCode: buildCode, fullCode: fullCode, parseParts: parseParts, parseNumber: parseNumber,
         isTextRecipe: isTextRecipe, findBuiltin: findBuiltin, easeIndex: easeIndex, install: install,
+        buildOverlayParts: buildOverlayParts,
         serialize: serialize, deserialize: deserialize, loadPresets: loadPresets, savePresets: savePresets};
 })();
 if (typeof $ !== 'undefined' && $.global) { $.global.ESCore = ESCore; }

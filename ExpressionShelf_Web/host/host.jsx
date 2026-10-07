@@ -44,11 +44,18 @@ function ES_targetInfo() {
 function ES_prepare(d) {
     ES_need();
     if (!d || !d.p || typeof d.code !== 'string' || !(d.values instanceof Array)) { throw new Error('잘못된 요청입니다.'); }
-    var p = d.p, i;
-    if (p.recipe !== 'custom' && !ESCore.findBuiltin(p.recipe)) { throw new Error('알 수 없는 프리셋입니다: ' + p.recipe); }
+    var p = d.p, i, spec = ESCore.findBuiltin(p.recipe);
+    if (p.recipe !== 'custom' && !spec) { throw new Error('알 수 없는 프리셋입니다: ' + p.recipe); }
     if (!/^[A-Za-z0-9_]+$/.test(String(p.id))) { throw new Error('프리셋 ID 오류'); }
     if (d.values.length > 5) { throw new Error('수치 데이터 오류'); }
     for (i = 0; i < d.values.length; i++) { d.values[i] = ESCore.parseNumber(String(d.values[i]), -100000, 100000, '수치'); }
+    if (spec && spec.transition) {
+        if (!d.motion || d.values.length !== spec.params.length) { throw new Error('전환 길이와 수치를 확인하세요.'); }
+        d.motion.ms = ESCore.parseNumber(String(d.motion.ms), 100, 3000, '길이(ms)');
+        for (i = 0; i < d.values.length; i++) {
+            d.values[i] = ESCore.parseNumber(String(d.values[i]), spec.params[i].min, spec.params[i].max, spec.params[i].label);
+        }
+    }
     d.code = d.code.replace(/\r\n?/g, '\n');
     if (!d.code.replace(/\s/g, '')) { throw new Error('익스프레션 코드를 입력하세요.'); }
     if (d.code.length > 24000) { throw new Error('코드는 최대 24,000자입니다.'); }
@@ -59,7 +66,6 @@ function ES_prepare(d) {
     if (p.recipe === 'tr_glitch') {
         if (!d.motion || d.values.length !== 5) { throw new Error('글리치 패널을 최신 버전으로 다시 열어주세요.'); }
         d.motion.ms = ESCore.parseNumber(String(d.motion.ms), 100, 3000, '글리치 길이');
-        var spec = ESCore.findBuiltin(p.recipe);
         for (i = 0; i < 5; i++) { d.values[i] = ESCore.parseNumber(String(d.values[i]), spec.params[i].min, spec.params[i].max, spec.params[i].label); }
     }
     if (p.recipe === 'tr_light_leak') {
@@ -68,6 +74,15 @@ function ES_prepare(d) {
         d.values[0] = ESCore.parseNumber(String(d.values[0]), 0, 100, '빛 강도');
         d.values[1] = ESCore.parseNumber(String(d.values[1]), 30, 180, '빛 폭');
         d.lightParts = ESCore.parseParts(ESCore.buildLightCode(d.values, d.motion), 0);
+    }
+    if (p.recipe === 'tr_film_burn' || p.recipe === 'tr_flash_cut' || p.recipe === 'tr_color_sweep') {
+        var overlaySpec = ESCore.findBuiltin(p.recipe);
+        if (!d.motion || d.values.length !== overlaySpec.params.length) { throw new Error('전환 오버레이의 길이와 수치를 확인하세요.'); }
+        d.motion.ms = ESCore.parseNumber(String(d.motion.ms), 100, 3000, '길이(ms)');
+        for (i = 0; i < d.values.length; i++) {
+            d.values[i] = ESCore.parseNumber(String(d.values[i]), overlaySpec.params[i].min, overlaySpec.params[i].max, overlaySpec.params[i].label);
+        }
+        d.overlayParts = ESCore.buildOverlayParts(p.recipe, d.values, d.motion);
     }
     return d;
 }
@@ -132,6 +147,43 @@ function ES_createLight(layer, d, delay, time, tag) {
         return light;
     } catch (err) { if (light) { try { light.remove(); } catch (ignore) {} } throw err; }
 }
+function ES_createTransitionOverlay(layer, d, delay, time, tag) {
+    var c = layer.containingComp, overlay = null, i, root, group, content, shape, fill, colors, x, w, h, strength, blur, result;
+    try {
+        overlay = c.layers.addShape();
+        overlay.name = (d.p.recipe === 'tr_film_burn' ? 'ES Film Burn · ' : d.p.recipe === 'tr_flash_cut' ? 'ES Flash · ' : 'ES Color Sweep · ') + layer.name;
+        overlay.comment = tag; overlay.moveBefore(layer); overlay.startTime = layer.inPoint; overlay.inPoint = layer.inPoint; overlay.outPoint = layer.outPoint;
+        overlay.blendingMode = d.p.recipe === 'tr_flash_cut' ? BlendingMode.ADD : BlendingMode.SCREEN;
+        root = overlay.property('ADBE Root Vectors Group'); strength = d.values[0];
+        if (d.p.recipe === 'tr_flash_cut') {
+            shape = root.addProperty('ADBE Vector Shape - Rect'); shape.property('ADBE Vector Rect Size').setValue([c.width, c.height]);
+            fill = root.addProperty('ADBE Vector Graphic - Fill'); fill.property('ADBE Vector Fill Color').setValue([1, 1, 1, 1]);
+        } else {
+            colors = d.p.recipe === 'tr_film_burn' ? [[0.48,0.06,0.01],[1,0.22,0.015],[1,0.62,0.08],[1,0.9,0.43]] :
+                [[0.22,0.04,0.9],[0.05,0.72,1],[0.1,1,0.74],[0.82,0.16,1],[0.14,0.42,1]];
+            strength = Math.min(180, d.values[1]);
+            for (i = 0; i < 16; i++) {
+                group = root.addProperty('ADBE Vector Group'); group.name = 'Sweep band ' + (i + 1); content = group.property('ADBE Vectors Group');
+                shape = content.addProperty('ADBE Vector Shape - Ellipse');
+                if (d.p.recipe === 'tr_film_burn') {
+                    w = c.width * (0.42 + (i % 4) * 0.16) * strength / 100; h = c.height * (1.05 + (i % 3) * 0.22);
+                    x = ((i % 5) - 2) * c.width * 0.055;
+                } else {
+                    w = c.width * (0.09 + (i % 3) * 0.035) * strength / 70; h = c.height * 1.5;
+                    x = (i - 7.5) * c.width * 0.065;
+                }
+                shape.property('ADBE Vector Ellipse Size').setValue([w, h]); shape.property('ADBE Vector Ellipse Position').setValue([x, 0]);
+                fill = content.addProperty('ADBE Vector Graphic - Fill'); fill.property('ADBE Vector Fill Color').setValue(colors[i % colors.length]);
+                fill.property('ADBE Vector Fill Opacity').setValue(d.p.recipe === 'tr_film_burn' ? 22 : 36);
+            }
+            blur = overlay.property('ADBE Effect Parade').addProperty('ADBE Gaussian Blur 2'); blur.name = 'ES Overlay Softness'; blur.property(1).setValue(c.width * (d.p.recipe === 'tr_film_burn' ? 0.045 : 0.018));
+        }
+        overlay.property('ADBE Transform Group').property('ADBE Position').setValue([c.width / 2, c.height / 2]);
+        result = ESCore.install(overlay, {p:{recipe:'custom'}, parts:d.overlayParts}, delay, true, time);
+        if (result.skip) { throw new Error(result.message); }
+        return overlay;
+    } catch (err) { if (overlay) { try { overlay.remove(); } catch (ignore) {} } throw err; }
+}
 function ES_setExpression(prop, code, delay, time) {
     if (!prop || !prop.canSetExpression) { throw new Error('보조 레이어 속성을 찾지 못했습니다.'); }
     prop.expression = ESCore.fullCode(code, delay); prop.expressionEnabled = true;
@@ -181,8 +233,29 @@ function ES_installGlitch(layer, d, delay, overwrite, time) {
     for (i = old.length - 1; i >= 0; i--) { old[i].remove(); }
     return {skip:false, createdLayers:created};
 }
+function ES_installTransitionOverlay(layer, d, delay, overwrite, time) {
+    if (layer.locked || layer.threeDLayer || layer.parent || layer.adjustmentLayer || layer.nullLayer || layer.hasTrackMatte ||
+        layer.matchName === 'ADBE Camera Layer' || layer.matchName === 'ADBE Light Layer') {
+        return {skip:true, message:'필름 번·플래시·컬러 스윕은 매트 없는 2D 장면 레이어에 적용하세요. 필요한 경우 먼저 프리컴프하세요.'};
+    }
+    if (layer.id === undefined) { throw new Error('전환 오버레이는 After Effects 2022 이상이 필요합니다.'); }
+    var c = layer.containingComp, tag = 'ExpressionShelf:overlay:v1:' + d.p.recipe + ':' + layer.id, old = [], i, overlay = null, result;
+    for (i = 1; i <= c.numLayers; i++) { if (c.layer(i).comment === tag) { old.push(c.layer(i)); } }
+    if (old.length && !overwrite) { return {skip:true, message:'기존 같은 전환 오버레이 유지'}; }
+    for (i = 0; i < old.length; i++) { if (old[i].locked) { return {skip:true, message:'기존 전환 오버레이가 잠겨 있습니다'}; } }
+    overlay = ES_createTransitionOverlay(layer, d, delay, time, tag);
+    try {
+        result = ESCore.install(layer, d, delay, overwrite, time);
+        if (result.skip) { overlay.remove(); return result; }
+    } catch (err) { try { overlay.remove(); } catch (ignore) {} throw err; }
+    for (i = old.length - 1; i >= 0; i--) { old[i].remove(); }
+    return {skip:false, createdLayers:[overlay]};
+}
 function ES_install(layer, d, delay, overwrite, time) {
     if (d.p.recipe === 'tr_glitch') { return ES_installGlitch(layer,d,delay,overwrite,time); }
+    if (d.p.recipe === 'tr_film_burn' || d.p.recipe === 'tr_flash_cut' || d.p.recipe === 'tr_color_sweep') {
+        return ES_installTransitionOverlay(layer, d, delay, overwrite, time);
+    }
     if (d.p.recipe !== 'tr_light_leak') { return ESCore.install(layer, d, delay, overwrite, time); }
     if (layer.locked || layer.threeDLayer || layer.parent || layer.adjustmentLayer || layer.nullLayer ||
         layer.matchName === 'ADBE Camera Layer' || layer.matchName === 'ADBE Light Layer') {

@@ -63,7 +63,7 @@
   }
 
   // ---------------------------------------------------------------- preview renderer
-  const BASE = { '위치': [0, 0], '크기': [100, 100], 'Z 회전': 0, '불투명도': 100, '기준점': [0, 0], '블러': 0, '와이프': 0, '원형 와이프': 0 };
+  const BASE = { '위치': [0, 0], '크기': [100, 100], 'Z 회전': 0, '불투명도': 100, '기준점': [0, 0], '블러': 0, '와이프': 0, '원형 와이프': 0, '셔터 와이프': 100, '셔터 폭': 35, '블록 디졸브': 100 };
   const LEAD = 0.35;
   function cycleFor(preset, ms) {
     const continuous = preset.cat === 6 || preset.id === 'text_wave';
@@ -83,6 +83,7 @@
       this.isTransition = !!spec.preset.transition;
       this.isLight = spec.preset.recipe === 'tr_light_leak';
       this.isGlitch = spec.preset.recipe === 'tr_glitch';
+      this.overlayKind = ['tr_film_burn','tr_flash_cut','tr_color_sweep'].includes(spec.preset.recipe) ? spec.preset.recipe : '';
       this.stage.classList.toggle('transition-stage', this.isTransition);
       this.error = '';
       const kind = this.isTextAnim || spec.previewType === 'text' ? 'text' : 'shape';
@@ -121,6 +122,10 @@
         });
         this.flash = el('div','glitch-flash'); this.stage.appendChild(this.flash);
       }
+      if (this.overlayKind) {
+        this.transitionOverlay = el('div', 'transition-overlay ' + this.overlayKind);
+        this.stage.appendChild(this.transitionOverlay);
+      }
       this.errEl = el('div', 'stage-err'); this.errEl.hidden = true; this.stage.appendChild(this.errEl);
       this.width = 0;
       try {
@@ -131,6 +136,7 @@
           const flash = C.buildGlitchFlash(spec.values,motion);
           this.flashOpacity = compile(C.fullCode(flash.opacity,0)); this.flashColor = compile(C.fullCode(flash.color,0));
         }
+        if (this.overlayKind) this.renderTransitionOverlay({time:LEAD, inPoint:LEAD}, this.k || 1);
         if (this.isLight) {
           this.lightParts = C.parseParts(C.buildLightCode(spec.values, {ms:spec.ms, ease:spec.ease || spec.preset.ease}), 0)
             .map((p) => ({target:p.target, fn:compile(C.fullCode(p.code, 0))}));
@@ -172,6 +178,7 @@
         else this.renderLayer(ctx, k);
         if (this.isLight) this.renderLight(ctx, k);
         if (this.isGlitch) this.renderGlitch(ctx, k);
+        if (this.overlayKind) this.renderTransitionOverlay(ctx, k);
       } catch (e) { this.fail(e); return -1; }
       return c.continuous ? -1 : time / c.len;
     }
@@ -192,6 +199,16 @@
       st.opacity = clamp(op / 100, 0, 1);
       st.filter = blur > 0.05 ? `blur(${blur * k}px)` : 'none';
       st.clipPath = radialWipe > 0.05 ? `circle(${(100 - radialWipe) * 0.75}% at 50% 50%)` : wipe > 0.05 ? `inset(0 0 0 ${wipe}%)` : 'none';
+      if (v['셔터 와이프'] !== undefined) {
+        const progress = clamp((100 - v['셔터 와이프']) / 100, 0, 1), step = 360 * k / 12, open = step * progress;
+        st.webkitMaskImage = `repeating-linear-gradient(to bottom, #000 0 ${open}px, transparent ${open}px ${step}px)`;
+        st.maskImage = st.webkitMaskImage;
+      } else { st.webkitMaskImage = ''; st.maskImage = ''; }
+      if (v['블록 디졸브'] !== undefined) {
+        const progress = clamp((100 - v['블록 디졸브']) / 100, 0, 1);
+        st.opacity = clamp(op / 100, 0, 1) * progress;
+        st.filter = `blur(${(1 - progress) * 8 * k}px)`;
+      }
     }
     renderGlitch(ctx, k) {
       for (let i=0;i<3;i++) {
@@ -216,6 +233,14 @@
       this.leak.style.transform = `translate(${(pos[0] - 320) * k}px, ${(pos[1] - 180) * k}px) scale(${scale[0] / 100},${scale[1] / 100})`;
       this.leak.style.opacity = clamp(v['불투명도'] / 100, 0, 1);
       this.leak.style.filter = `blur(${16 * k}px)`;
+    }
+    renderTransitionOverlay(ctx, k) {
+      const D = this.spec.ms / 1000, q = clamp((ctx.time - ctx.inPoint) / D, 0, 1);
+      const g = Math.max(0, Math.sin(Math.PI * q)), strength = Number(this.spec.values[0] || 0);
+      const exponent = this.overlayKind === 'tr_flash_cut' ? 8 : this.overlayKind === 'tr_film_burn' ? 1.15 : 1.35;
+      const st = this.transitionOverlay.style;
+      st.opacity = clamp(strength / 100 * Math.pow(g, exponent), 0, 1);
+      st.transform = `translateX(${-18 + 136 * q}%)`;
     }
     renderText(ctx, k) {
       for (let i = 0; i < this.chars.length; i++) {

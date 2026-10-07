@@ -1,8 +1,8 @@
 # Expression Shelf Web
 
-After Effects용 CEP 패널입니다. 모션 프리셋 51개, 트랜지션 18개, 타이포 보관함, 레터박스 생성 기능을 포함합니다.
+After Effects용 CEP 패널입니다. 모션 프리셋 51개, 트랜지션 28개, 타이포 보관함, 레터박스 생성 기능을 포함합니다.
 
-현재 준비 버전은 **0.6.4 시험판**입니다. Windows에서 After Effects를 종료한 다음 `ExpressionShelf_Web/설치하기.bat`을 실행하세요. 상세 사용법은 `ExpressionShelf_Web/README_WEB.txt`에 있습니다.
+현재 준비 버전은 **0.6.5 시험판**입니다. Windows에서 After Effects를 종료한 다음 `ExpressionShelf_Web/설치하기.bat`을 실행하세요. 상세 사용법은 `ExpressionShelf_Web/README_WEB.txt`에 있습니다.
 
 ## GitHub 릴리스
 

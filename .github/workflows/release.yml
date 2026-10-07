@@ -9,7 +9,7 @@ on:
         description: 'manifest.xml 버전과 같은 태그 (예: v0.6.1)'
         required: true
         type: string
-        default: v0.6.4
+        default: v0.6.5
 permissions:
   contents: write
 concurrency:
@@ -30,6 +30,7 @@ jobs:
           node --check ExpressionShelf_Web/shelf-core.js
           node tests/updater.test.js
           node tests/transitions.test.js
+          node tests/transition-host.test.js
       - name: Build ZIP and update metadata
         env:
           RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
