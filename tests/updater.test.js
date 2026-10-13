@@ -37,7 +37,7 @@ const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'es-updater-test-'));
 const window = {cep_node:{require(name){ return ({fs,path,os,https,crypto,child_process:child})[name]; }}};
 vm.runInNewContext(fs.readFileSync('ExpressionShelf_Web/updater.js', 'utf8'), { window, Buffer, URL });
 const updater = window.ESUpdater;
-assert.strictEqual(updater.currentVersion, '0.6.6');
+assert.strictEqual(updater.currentVersion, '0.6.7');
 assert.strictEqual(updater.compareVersions('0.6.10', '0.6.9'), 1);
 assert.strictEqual(updater.compareVersions('1.0.0', '1.0.0'), 0);
 assert.strictEqual(updater.compareVersions('0.6.0', '0.6.1'), -1);

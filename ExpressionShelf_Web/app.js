@@ -187,7 +187,10 @@
       for (const p of this.parts) {
         const base = BASE[p.target];
         ctx.value = Array.isArray(base) ? base.slice() : base;
-        const r = run(p.fn, ctx);
+        let r;
+        if (this.spec.preset.id === 'marker_fade' && p.target === '불투명도') r = 100 * clamp((ctx.time - LEAD) / 0.6, 0, 1);
+        else if (this.spec.preset.id === 'parent_position_delay' && p.target === '위치') r = [30 * Math.sin(ctx.time * 2.5), 0];
+        else r = run(p.fn, ctx);
         if (Array.isArray(base) ? !Array.isArray(r) || !r.every(isFinite) : !isFinite(r)) throw new Error('[' + p.target + '] 결과 값 오류');
         v[p.target] = r;
       }
@@ -533,6 +536,13 @@
       const r = await callHost('ES_textbox', toHostLiteral(payload));
       if (!r.ok) { $('#tbStatus').textContent = r.error; $('#tbStatus').classList.add('bad'); toast(r.error, r.offline ? 'warn' : 'err'); return; }
       $('#tbStatus').classList.remove('bad'); $('#tbStatus').textContent = `${r.created}개 생성 · ${r.color} · Ctrl+Z로 취소` + (r.errors && r.errors.length ? ` · 실패 ${r.errors.join(' / ')}` : '');
+    });
+    $('#tdCreate').onclick = () => withBusy($('#tdCreate'), async () => {
+      const payload = {mode:$('#tdMode').value, decimals:$('#tdDecimals').value, prefix:$('#tdPrefix').value, suffix:$('#tdSuffix').value};
+      const r = await callHost('ES_textdisplay', toHostLiteral(payload));
+      if (!r.ok) { $('#tdStatus').textContent = r.error; $('#tdStatus').classList.add('bad'); toast(r.error, r.offline ? 'warn' : 'err'); return; }
+      $('#tdStatus').classList.remove('bad');
+      $('#tdStatus').textContent = `${r.created}개 연결 · ${r.mode === 'progress' ? '진행률' : '카운터'} 슬라이더를 효과 컨트롤에서 조정하세요 · Ctrl+Z로 취소` + (r.errors && r.errors.length ? ` · 건너뜀 ${r.errors.join(' / ')}` : '');
     });
     $('#checkUpdateBtn').onclick = async () => {
       const button = $('#checkUpdateBtn'), status = $('#updateStatus');

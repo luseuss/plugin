@@ -102,6 +102,9 @@ function ES_init(root) {
         var textBox = new File(root + '/host/textbox.jsx');
         if (!textBox.exists) { throw new Error('host/textbox.jsx를 찾지 못했습니다. 다시 설치해주세요.'); }
         $.evalFile(textBox);
+        var textDisplay = new File(root + '/host/textdisplay.jsx');
+        if (!textDisplay.exists) { throw new Error('host/textdisplay.jsx를 찾지 못했습니다. 다시 설치해주세요.'); }
+        $.evalFile(textDisplay);
         ES_STATE.ready = true;
         return {motions: ESCore.BUILTINS.length, target: ES_targetInfo()};
     });

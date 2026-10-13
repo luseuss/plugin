@@ -122,6 +122,19 @@
         <p class="hint">생성 후 도형 레이어의 효과 컨트롤에서 색상과 여백을 바꿀 수 있습니다. 텍스트 레이어의 글꼴과 문구가 바뀌면 배경 크기도 자동으로 맞춰집니다.</p>
       </div>
       <p id="tbStatus" class="typo-status" role="status" aria-live="polite"></p>
+      <header class="typo-heading"><div><span class="d-cat">SLIDER TEXT</span><h2>숫자 카운터·진행률 텍스트</h2></div></header>
+      <p class="typo-intro">선택한 텍스트 레이어에 슬라이더 컨트롤을 만들고, Source Text를 연결합니다. 효과 컨트롤에서 슬라이더 값을 바꾸거나 키프레임을 주세요.</p>
+      <div class="typo-save-box">
+        <div class="letterbox-fields">
+          <label class="field"><span>표시 형식</span><select id="tdMode"><option value="counter">숫자 카운터</option><option value="progress">진행률 (0–100)</option></select></label>
+          <label class="field"><span>소수 자릿수</span><input id="tdDecimals" type="number" min="0" max="6" step="1" value="0"></label>
+          <label class="field"><span>앞에 붙일 문자</span><input id="tdPrefix" type="text" maxlength="40" placeholder="예: $"></label>
+          <label class="field"><span>뒤에 붙일 문자</span><input id="tdSuffix" type="text" maxlength="40" placeholder="예: 명 또는 %"></label>
+        </div>
+        <button id="tdCreate" class="btn primary">선택한 텍스트에 연결</button>
+        <p class="hint">진행률은 0–100 범위로 제한됩니다. 기존 Source Text 표현식이 있는 레이어는 덮어쓰지 않고 건너뜁니다. 실행 취소는 Ctrl+Z입니다.</p>
+      </div>
+      <p id="tdStatus" class="typo-status" role="status" aria-live="polite"></p>
     </section>
 
     <aside class="detail" id="detail" hidden aria-label="모션 상세">

@@ -11,8 +11,8 @@ var ESCore = (function () {
                    {name: '셔터 와이프', fx: 'ADBE Venetian Blinds', label: 'ES 셔터 와이프'},
                    {name: '셔터 폭', fx: 'ADBE Venetian Blinds', label: 'ES 셔터 와이프', index: 3},
                    {name: '블록 디졸브', fx: 'ADBE Block Dissolve', label: 'ES 픽셀 디졸브'}];
-    var CATS = ['등장·퇴장', '이동', '확대·축소', '회전', '탄성·반동', '강조', '반복(루프)', '텍스트', '트랜지션'];
-    var CAT_SHORT = ['등장', '이동', '크기', '회전', '탄성', '강조', '루프', '텍스트', '전환'];
+    var CATS = ['등장·퇴장', '이동', '확대·축소', '회전', '탄성·반동', '강조', '반복(루프)', '텍스트', '트랜지션', '마커·레이어'];
+    var CAT_SHORT = ['등장', '이동', '크기', '회전', '탄성', '강조', '루프', '텍스트', '전환', '마커'];
     var FEELS = ['부드러움', '경쾌함', '통통 튐', '무거움', '일정함'];
     // Standard easing curves; x is clamped to 0..1 before the body runs.
     var EASES = [
@@ -180,6 +180,11 @@ var ESCore = (function () {
         motion('camera_depth_fade', '카메라 깊이 페이드', 5, '부드러움', null, null, '활성 카메라와 레이어 사이 거리에 따라 멀어질수록 투명해집니다. 3D 레이어와 활성 카메라가 필요합니다.',
             [param('선명 구간 끝 (px)', 1000, 0, 100000), param('완전 투명 거리 (px)', 5000, 1, 100000)],
             function (v) { return [['불투명도', 'var cam = thisComp.activeCamera;\nif (!cam || !thisLayer.threeDLayer) value; else { var d = length(cam.toWorld(cam.anchorPoint), thisLayer.toWorld(thisLayer.anchorPoint)); linear(d, ' + n(v[0]) + ', Math.max(' + n(v[0]) + ' + 1, ' + n(v[1]) + '), value, 0); }']]; }),
+        motion('marker_fade', '마커 페이드 인', 9, '부드러움', 600, 'easeOutCubic', '레이어 마커마다 불투명도가 0에서 원래 값까지 페이드 인합니다. 먼저 타임라인에 마커를 추가하세요.', [],
+            function () { return [['불투명도', 'var mk = thisLayer.marker;\nif (mk.numKeys < 1) value; else { var k = mk.nearestKey(time).index; if (mk.key(k).time > time) k--; if (k < 1) 0; else value * ES_e((time - mk.key(k).time) / D); }']]; }),
+        motion('parent_position_delay', '부모 위치 지연', 1, '부드러움', null, null, '부모 레이어의 위치 변화만큼 자식 레이어의 위치를 늦춰 따라오게 합니다. 부모 연결과 위치 키프레임이 필요합니다.',
+            [param('지연 (프레임)', 4, 0, 120)],
+            function (v) { return [['위치', 'if (!parent) value; else { var pp = parent.transform.position; value + pp.valueAtTime(time - framesToTime(' + n(v[0]) + ')) - pp.value; }']]; }),
         // 반복(루프)
         motion('wiggle', '랜덤 흔들림', 6, '경쾌함', null, null, '위치를 자연스럽게 흔듭니다. 강도는 px, 빈도는 초당 횟수입니다.',
             [param('강도 (px)', 20, 0, 2000), param('빈도 (회/초)', 2, 0.01, 30)],
@@ -559,6 +564,8 @@ var ESCore = (function () {
         if (layer.locked) { return {skip: true, message: '잠긴 레이어'}; }
         var spec = findBuiltin(d.p.recipe);
         if (d.p.recipe === 'camera_depth_fade' && !layer.threeDLayer) { return {skip: true, message: '카메라 깊이 페이드는 3D 레이어에 적용하세요'}; }
+        if (d.p.recipe === 'parent_position_delay' && !layer.parent) { return {skip: true, message: '부모 위치 지연은 부모가 연결된 자식 레이어에 적용하세요'}; }
+        if (d.p.recipe === 'marker_fade' && (!layer.marker || layer.marker.numKeys < 1)) { return {skip: true, message: '먼저 타임라인에 레이어 마커를 추가하세요'}; }
         if (spec && spec.transition && (layer.threeDLayer || layer.parent || layer.adjustmentLayer || layer.nullLayer)) { return {skip: true, message: '트랜지션은 부모 연결 없는 2D 장면 레이어에 적용하세요'}; }
         if (layer.matchName === 'ADBE Camera Layer' || layer.matchName === 'ADBE Light Layer') { return {skip: true, message: '카메라/조명 제외'}; }
         return isTextRecipe(d.p.recipe) ? installText(layer, d.p, d.values, fullCode(d.code, delay), overwrite, time) :
