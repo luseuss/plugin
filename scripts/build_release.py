@@ -22,7 +22,7 @@ def build(repository, tag):
     updater = (source / 'updater.js').read_text(encoding='utf-8')
     if "const CURRENT_VERSION = '" + version + "';" not in updater:
         raise ValueError('Updater version must match ExtensionBundleVersion')
-    for name in ['index.html', 'app.js', 'updater.js', 'typo.js', 'host/host.jsx', 'host/typo.jsx', '설치하기.bat']:
+    for name in ['index.html', 'app.js', 'updater.js', 'typo.js', 'presets.js', 'host/host.jsx', 'host/typo.jsx', 'host/presets.jsx', '설치하기.bat']:
         if not (source / name).is_file():
             raise ValueError('Missing package file: ' + name)
     out = ROOT / 'dist'

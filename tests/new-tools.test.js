@@ -33,4 +33,7 @@ assert(textDisplay.includes('기존 Source Text 표현식 유지') && textDispla
 assert(ui.includes('id="tdCreate"') && ui.includes('id="tdMode"'));
 assert(app.includes("callHost('ES_textdisplay'") && app.includes("preset.id === 'marker_fade'"));
 assert(hostEntry.includes("host/textdisplay.jsx"));
+assert(ui.includes('data-scope="presets"') && ui.includes('id="presetSaveBtn"'));
+assert(fs.readFileSync('ExpressionShelf_Web/presets.js', 'utf8').includes("request('ES_presetSave'"));
+assert(hostEntry.includes("host/presets.jsx"));
 console.log('Camera depth fade, marker/parent presets, text background and slider text tool checks passed.');

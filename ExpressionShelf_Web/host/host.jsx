@@ -105,6 +105,9 @@ function ES_init(root) {
         var textDisplay = new File(root + '/host/textdisplay.jsx');
         if (!textDisplay.exists) { throw new Error('host/textdisplay.jsx를 찾지 못했습니다. 다시 설치해주세요.'); }
         $.evalFile(textDisplay);
+        var presets = new File(root + '/host/presets.jsx');
+        if (!presets.exists) { throw new Error('host/presets.jsx를 찾지 못했습니다. 다시 설치해주세요.'); }
+        $.evalFile(presets);
         ES_STATE.ready = true;
         return {motions: ESCore.BUILTINS.length, target: ES_targetInfo()};
     });

@@ -278,6 +278,19 @@
     code: '', dirty: false, busy: false,
   };
   const cards = new Map();          // id -> {elem, renderer, visible}
+  const FAVORITES_KEY = 'ExpressionShelf.favorites.v1';
+  function readFavorites() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]');
+      const valid = new Set(C.BUILTINS.map((p) => p.id));
+      return new Set(Array.isArray(saved) ? saved.filter((id) => valid.has(id)) : []);
+    } catch (_) { return new Set(); }
+  }
+  const favorites = readFavorites();
+  function saveFavorites() {
+    try { localStorage.setItem(FAVORITES_KEY, JSON.stringify(Array.from(favorites))); }
+    catch (_) { toast('즐겨찾기를 저장하지 못했습니다. 패널 저장 공간을 확인하세요.', 'warn'); }
+  }
   let detailRenderer = null;
   const ALL_EASES = C.EASES.map((e) => e[0]);
 
@@ -291,7 +304,7 @@
   }
   function renderFilters() {
     const cats = $('#cats'); cats.innerHTML = '';
-    const group = C.BUILTINS.filter((p) => !!p.transition === (state.scope === 'transition'));
+    const group = state.scope === 'favorites' ? C.BUILTINS : C.BUILTINS.filter((p) => !!p.transition === (state.scope === 'transition'));
     cats.appendChild(catChip('전체', -1, group.length));
     C.CATS.forEach((c, i) => { const n = group.filter((b) => b.cat === i).length; if (n && state.scope !== 'transition') cats.appendChild(catChip(c, i, n)); });
     document.querySelectorAll('#shelfType button').forEach((b) => b.classList.toggle('on', b.dataset.scope === state.scope));
@@ -303,7 +316,7 @@
     });
   }
   function matches(p) {
-    if (state.scope === 'typo' || !!p.transition !== (state.scope === 'transition')) return false;
+    if (state.scope === 'typo' || (state.scope === 'favorites' ? !favorites.has(p.id) : !!p.transition !== (state.scope === 'transition'))) return false;
     if (state.cat >= 0 && p.cat !== state.cat) return false;
     if (state.feel >= 0 && p.feel !== C.FEELS[state.feel]) return false;
     const q = state.q.trim().toLowerCase();
@@ -319,13 +332,26 @@
     for (const p of C.BUILTINS) {
       const card = el('div', 'card'); card.tabIndex = 0; card.dataset.id = p.id; card.setAttribute('role', 'button');
       const stage = el('div', 'stage');
+      const star = el('button', 'favorite-btn' + (favorites.has(p.id) ? ' on' : ''), favorites.has(p.id) ? '★' : '☆');
+      star.type = 'button'; star.title = favorites.has(p.id) ? '즐겨찾기 해제' : '즐겨찾기 추가'; star.setAttribute('aria-label', p.name + ' 즐겨찾기');
+      star.setAttribute('aria-pressed', favorites.has(p.id) ? 'true' : 'false');
+      star.onkeydown = (e) => e.stopPropagation();
+      star.onclick = (e) => {
+        e.stopPropagation();
+        if (favorites.has(p.id)) favorites.delete(p.id); else favorites.add(p.id);
+        const on = favorites.has(p.id);
+        star.classList.toggle('on', on); star.textContent = on ? '★' : '☆';
+        star.title = on ? '즐겨찾기 해제' : '즐겨찾기 추가'; star.setAttribute('aria-pressed', on ? 'true' : 'false');
+        saveFavorites();
+        if (state.scope === 'favorites') renderGrid();
+      };
       const meta = el('div', 'meta');
       meta.appendChild(el('div', 'name', p.name));
       const sub = el('div', 'sub');
       sub.appendChild(el('span', 'tag' + (p.anim ? ' text' : ''), C.CAT_SHORT[p.cat]));
       sub.appendChild(el('span', null, metaText(p)));
       meta.appendChild(sub);
-      card.appendChild(stage); card.appendChild(meta);
+      card.appendChild(stage); card.appendChild(star); card.appendChild(meta);
       card.onclick = () => openDetail(p);
       card.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(p); } };
       grid.appendChild(card);
@@ -344,8 +370,11 @@
       if (ok) shown++;
     }
     $('#empty').hidden = shown > 0;
-    const total = C.BUILTINS.filter((p) => !!p.transition === (state.scope === 'transition')).length;
-    $('#count').textContent = shown + ' / ' + total + (state.scope === 'transition' ? ' TRANSITIONS' : ' MOTIONS');
+    $('#empty').textContent = state.scope === 'favorites' && favorites.size === 0
+      ? '아직 즐겨찾기가 없습니다. 카드 오른쪽 위의 ☆를 눌러 자주 쓰는 모션을 모아 보세요.'
+      : '검색 결과가 없습니다.';
+    const total = state.scope === 'favorites' ? favorites.size : C.BUILTINS.filter((p) => !!p.transition === (state.scope === 'transition')).length;
+    $('#count').textContent = shown + ' / ' + total + (state.scope === 'transition' ? ' TRANSITIONS' : state.scope === 'favorites' ? ' FAVORITES' : ' MOTIONS');
   }
   function defaults(p) { return p.params.map((x) => x.value); }
 
@@ -362,9 +391,12 @@
     if (state.sel) { const prev = cards.get(state.sel.id); if (prev) prev.elem.classList.remove('sel'); }
     state.sel = p; cards.get(p.id).elem.classList.add('sel');
     state.values = defaults(p); state.ms = p.ms; state.ease = p.ease;
+    state.sampleText = 'MOTION';
+    $('#sampleText').value = 'MOTION';
     state.previewType = p.anim ? 'text' : 'shape';
     $('#dCat').textContent = C.CATS[p.cat] + ' · ' + p.feel + (p.exit ? ' · 퇴장' : '');
     $('#dName').textContent = p.name;
+    $('#presetSaveName').value = p.name;
     $('#dDesc').textContent = p.desc;
     $('#transitionHelp').hidden = !p.transition;
     $('#exampleSection').hidden = !!p.transition;
@@ -405,6 +437,38 @@
     regenerate();
     $('#detail').hidden = false;
     $('#scrim').hidden = !isNarrow();
+  }
+  function loadSavedPreset(item) {
+    const base = C.findBuiltin(item.recipe);
+    if (!base) throw new Error('원본 모션을 찾지 못했습니다. 저장 항목을 새로고침하세요.');
+    document.querySelector('#shelfType button[data-scope="motion"]').click();
+    openDetail(base);
+    state.sel = Object.assign({}, base, {name:item.name});
+    $('#dName').textContent = item.name;
+    $('#presetSaveName').value = item.name;
+    state.values = item.values.slice();
+    Array.from($('#params').children).forEach((row, i) => {
+      if (!state.values[i] && state.values[i] !== 0) return;
+      const inputs = row.querySelectorAll('input');
+      inputs[0].value = state.values[i]; inputs[1].value = state.values[i]; setFill(inputs[0]);
+    });
+    if (base.ms !== null) {
+      state.ms = item.ms;
+      $('#msRange').value = item.ms; setFill($('#msRange')); $('#msVal').textContent = item.ms + 'ms';
+      state.ease = item.ease || null;
+      if (state.ease && ALL_EASES.indexOf(state.ease) >= 0) $('#easeSel').value = state.ease;
+      drawCurve();
+    }
+    state.previewType = item.preview === 'text' ? 'text' : 'shape';
+    state.sampleText = item.sampleText || 'MOTION'; $('#sampleText').value = state.sampleText;
+    document.querySelectorAll('#previewType button').forEach((b) => {
+      b.classList.toggle('on', b.dataset.type === state.previewType);
+      b.disabled = !!base.anim && b.dataset.type === 'shape';
+    });
+    $('#sampleText').disabled = state.previewType !== 'text';
+    $('#startDelay').value = item.start; $('#stagger').value = item.stagger; $('#overwrite').checked = !!item.overwrite;
+    state.code = item.code; state.dirty = false; $('#code').value = item.code; $('#dirty').hidden = true;
+    $('#logBox').hidden = true; rebuildDetailPreview();
   }
   function closeDetail() {
     $('#detail').hidden = true; $('#scrim').hidden = true;
@@ -500,16 +564,18 @@
   }
 
   // ---------------------------------------------------------------- events
-  let typoShelf;
+  let typoShelf, presetShelf;
   function wire() {
     document.querySelectorAll('#shelfType button').forEach((b) => b.onclick = () => {
       closeDetail(); state.scope = b.dataset.scope; state.cat = -1; state.feel = -1; state.q = ''; $('#search').value = ''; renderFilters(); renderGrid();
-      const isTypo = state.scope === 'typo', isLetterbox = state.scope === 'letterbox', isTools = state.scope === 'tools';
-      $('#motionShelf').hidden = isTypo || isLetterbox || isTools; $('#cats').hidden = isTypo || isLetterbox || isTools; $('#motionFilters').hidden = isTypo || isLetterbox || isTools; $('#target').hidden = isTypo || isLetterbox || isTools;
+      const isTypo = state.scope === 'typo', isLetterbox = state.scope === 'letterbox', isTools = state.scope === 'tools', isPresets = state.scope === 'presets';
+      $('#motionShelf').hidden = isTypo || isLetterbox || isTools || isPresets; $('#cats').hidden = isTypo || isLetterbox || isTools || isPresets; $('#motionFilters').hidden = isTypo || isLetterbox || isTools || isPresets; $('#target').hidden = isTypo || isLetterbox || isTools || isPresets;
       $('#letterboxShelf').hidden = !isLetterbox;
       $('#textToolsShelf').hidden = !isTools;
-      $('#search').placeholder = isTypo ? '저장한 타이포 이름·분류 검색' : '모션·트랜지션·이징 검색';
+      $('#presetShelf').hidden = !isPresets;
+      $('#search').placeholder = isTypo ? '저장한 타이포 이름·분류 검색' : isPresets ? '내 프리셋 이름·코드 검색' : state.scope === 'favorites' ? '즐겨찾기 모션·트랜지션 검색' : '모션·트랜지션·이징 검색';
       if (typoShelf) typoShelf.show(isTypo);
+      if (presetShelf) presetShelf.show(isPresets);
     });
 
     $('#lbRatio').onchange = (e) => { $('#lbCustomWrap').hidden = e.target.value !== 'custom'; };
@@ -536,6 +602,17 @@
       const r = await callHost('ES_textbox', toHostLiteral(payload));
       if (!r.ok) { $('#tbStatus').textContent = r.error; $('#tbStatus').classList.add('bad'); toast(r.error, r.offline ? 'warn' : 'err'); return; }
       $('#tbStatus').classList.remove('bad'); $('#tbStatus').textContent = `${r.created}개 생성 · ${r.color} · Ctrl+Z로 취소` + (r.errors && r.errors.length ? ` · 실패 ${r.errors.join(' / ')}` : '');
+    });
+    $('#presetSaveBtn').onclick = () => withBusy($('#presetSaveBtn'), async () => {
+      const p = state.sel;
+      if (!p) { toast('먼저 저장할 모션의 상세 화면을 여세요.', 'warn'); return; }
+      try {
+        const result = await presetShelf.save({name:$('#presetSaveName').value, recipe:p.recipe, ms:state.ms, ease:state.ease,
+          values:state.values, preview:state.previewType, sampleText:state.sampleText, start:$('#startDelay').value || '0',
+          stagger:$('#stagger').value || '0', overwrite:$('#overwrite').checked, code:$('#code').value});
+        $('#presetSaveName').value = result.item.name;
+        toast('내 프리셋에 저장했습니다: ' + result.item.name, 'ok');
+      } catch (e) { toast(e.message || String(e), 'err'); }
     });
     $('#tdCreate').onclick = () => withBusy($('#tdCreate'), async () => {
       const payload = {mode:$('#tdMode').value, decimals:$('#tdDecimals').value, prefix:$('#tdPrefix').value, suffix:$('#tdSuffix').value};
@@ -574,7 +651,7 @@
         toast(String(e && e.message || e), 'err');
       } finally { button.disabled = false; }
     };
-    $('#search').addEventListener('input', (e) => { state.q = e.target.value; if (state.scope === 'typo' && typoShelf) typoShelf.search(state.q); else renderGrid(); });
+    $('#search').addEventListener('input', (e) => { state.q = e.target.value; if (state.scope === 'typo' && typoShelf) typoShelf.search(state.q); else if (state.scope === 'presets' && presetShelf) presetShelf.search(state.q); else renderGrid(); });
     document.addEventListener('keydown', (e) => {
       if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') { e.preventDefault(); $('#search').focus(); }
       if (e.key === 'Escape' && !$('#detail').hidden) closeDetail();
@@ -633,6 +710,7 @@
   async function init() {
     renderFilters(); buildCards(); renderGrid();
     if (window.ESTypo) typoShelf = window.ESTypo({call:callHost, literal:toHostLiteral, busy:withBusy});
+    if (window.ESPresets) presetShelf = window.ESPresets({call:callHost, literal:toHostLiteral, busy:withBusy, load:loadSavedPreset});
     wire();
     requestAnimationFrame(frame);
     $('#updateStatus').textContent = '현재 버전 v' + window.ESUpdater.currentVersion;
