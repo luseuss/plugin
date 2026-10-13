@@ -177,6 +177,9 @@ var ESCore = (function () {
             function (v) {
                 return [['불투명도', 'var o = value;\nif (t < 0) { o = 0; } else if (t < D) { seedRandom(Math.floor(t * ' + n(v[0]) + '), true); if (random() < 0.45) { o = value * 0.15; } }\no;']];
             }),
+        motion('camera_depth_fade', '카메라 깊이 페이드', 5, '부드러움', null, null, '활성 카메라와 레이어 사이 거리에 따라 멀어질수록 투명해집니다. 3D 레이어와 활성 카메라가 필요합니다.',
+            [param('선명 구간 끝 (px)', 1000, 0, 100000), param('완전 투명 거리 (px)', 5000, 1, 100000)],
+            function (v) { return [['불투명도', 'var cam = thisComp.activeCamera;\nif (!cam || !thisLayer.threeDLayer) value; else { var d = length(cam.toWorld(cam.anchorPoint), thisLayer.toWorld(thisLayer.anchorPoint)); linear(d, ' + n(v[0]) + ', Math.max(' + n(v[0]) + ' + 1, ' + n(v[1]) + '), value, 0); }']]; }),
         // 반복(루프)
         motion('wiggle', '랜덤 흔들림', 6, '경쾌함', null, null, '위치를 자연스럽게 흔듭니다. 강도는 px, 빈도는 초당 횟수입니다.',
             [param('강도 (px)', 20, 0, 2000), param('빈도 (회/초)', 2, 0.01, 30)],
@@ -555,6 +558,7 @@ var ESCore = (function () {
     function install(layer, d, delay, overwrite, time) {
         if (layer.locked) { return {skip: true, message: '잠긴 레이어'}; }
         var spec = findBuiltin(d.p.recipe);
+        if (d.p.recipe === 'camera_depth_fade' && !layer.threeDLayer) { return {skip: true, message: '카메라 깊이 페이드는 3D 레이어에 적용하세요'}; }
         if (spec && spec.transition && (layer.threeDLayer || layer.parent || layer.adjustmentLayer || layer.nullLayer)) { return {skip: true, message: '트랜지션은 부모 연결 없는 2D 장면 레이어에 적용하세요'}; }
         if (layer.matchName === 'ADBE Camera Layer' || layer.matchName === 'ADBE Light Layer') { return {skip: true, message: '카메라/조명 제외'}; }
         return isTextRecipe(d.p.recipe) ? installText(layer, d.p, d.values, fullCode(d.code, delay), overwrite, time) :

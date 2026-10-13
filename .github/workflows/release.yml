@@ -9,7 +9,7 @@ on:
         description: 'manifest.xml 버전과 같은 태그 (예: v0.6.1)'
         required: true
         type: string
-        default: v0.6.5
+        default: v0.6.6
 permissions:
   contents: write
 concurrency:
@@ -28,6 +28,8 @@ jobs:
           node --check ExpressionShelf_Web/updater.js
           node --check ExpressionShelf_Web/typo.js
           node --check ExpressionShelf_Web/shelf-core.js
+          node --check < ExpressionShelf_Web/host/textbox.jsx
+          node tests/new-tools.test.js
           node tests/updater.test.js
           node tests/transitions.test.js
           node tests/transition-host.test.js

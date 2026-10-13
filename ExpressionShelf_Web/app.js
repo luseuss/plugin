@@ -192,7 +192,10 @@
         v[p.target] = r;
       }
       const pos = v['위치'] || [0, 0], an = v['기준점'] || [0, 0], s = v['크기'] || [100, 100];
-      const rot = v['Z 회전'] || 0, op = v['불투명도'] === undefined ? 100 : v['불투명도'];
+      const rot = v['Z 회전'] || 0;
+      let op = v['불투명도'] === undefined ? 100 : v['불투명도'];
+      // The browser preview has no AE camera or 3D scene; illustrate the distance fade with a synthetic near-to-far pass.
+      if (this.spec.preset.id === 'camera_depth_fade') op = 100 * (1 - clamp((ctx.time - 0.45) / 2.0, 0, 1));
       const blur = Math.max(0, v['블러'] || 0), wipe = clamp(v['와이프'] || 0, 0, 100), radialWipe = clamp(v['원형 와이프'] || 0, 0, 100);
       const st = this.root.style;
       st.transform = `translate(${(pos[0] - an[0]) * k}px, ${(pos[1] - an[1]) * k}px) rotate(${rot}deg) scale(${s[0] / 100}, ${s[1] / 100})`;
@@ -498,9 +501,10 @@
   function wire() {
     document.querySelectorAll('#shelfType button').forEach((b) => b.onclick = () => {
       closeDetail(); state.scope = b.dataset.scope; state.cat = -1; state.feel = -1; state.q = ''; $('#search').value = ''; renderFilters(); renderGrid();
-      const isTypo = state.scope === 'typo', isLetterbox = state.scope === 'letterbox';
-      $('#motionShelf').hidden = isTypo || isLetterbox; $('#cats').hidden = isTypo || isLetterbox; $('#motionFilters').hidden = isTypo || isLetterbox; $('#target').hidden = isTypo || isLetterbox;
+      const isTypo = state.scope === 'typo', isLetterbox = state.scope === 'letterbox', isTools = state.scope === 'tools';
+      $('#motionShelf').hidden = isTypo || isLetterbox || isTools; $('#cats').hidden = isTypo || isLetterbox || isTools; $('#motionFilters').hidden = isTypo || isLetterbox || isTools; $('#target').hidden = isTypo || isLetterbox || isTools;
       $('#letterboxShelf').hidden = !isLetterbox;
+      $('#textToolsShelf').hidden = !isTools;
       $('#search').placeholder = isTypo ? '저장한 타이포 이름·분류 검색' : '모션·트랜지션·이징 검색';
       if (typoShelf) typoShelf.show(isTypo);
     });
@@ -517,6 +521,18 @@
       const r = await callHost('ES_letterbox', toHostLiteral({ratio, color:$('#lbColorHex').value, fade:$('#lbFade').value}));
       if (!r.ok) { $('#lbStatus').textContent = r.error; $('#lbStatus').classList.add('bad'); toast(r.error, r.offline ? 'warn' : 'err'); return; }
       $('#lbStatus').classList.remove('bad'); $('#lbStatus').textContent = `생성 완료: ${r.name} · ${r.ratio}:1 · 막대 높이 ${r.barPercent}% · ${r.color} · 페이드 ${r.fade}초 (Ctrl+Z로 취소)`;
+    });
+    $('#tbColor').oninput = (e) => { $('#tbColorHex').value = e.target.value.toUpperCase(); };
+    $('#tbColorHex').onchange = (e) => {
+      const v = e.target.value.trim();
+      if (/^#?[0-9a-fA-F]{6}$/.test(v)) { const normalized = '#' + v.replace(/^#/, '').toUpperCase(); $('#tbColor').value = normalized; e.target.value = normalized; }
+      else { e.target.value = $('#tbColor').value.toUpperCase(); toast('색상 코드는 #RRGGBB 형식이어야 합니다.', 'warn'); }
+    };
+    $('#tbCreate').onclick = () => withBusy($('#tbCreate'), async () => {
+      const payload = {padX:$('#tbPadX').value, padY:$('#tbPadY').value, radius:$('#tbRadius').value, color:$('#tbColorHex').value};
+      const r = await callHost('ES_textbox', toHostLiteral(payload));
+      if (!r.ok) { $('#tbStatus').textContent = r.error; $('#tbStatus').classList.add('bad'); toast(r.error, r.offline ? 'warn' : 'err'); return; }
+      $('#tbStatus').classList.remove('bad'); $('#tbStatus').textContent = `${r.created}개 생성 · ${r.color} · Ctrl+Z로 취소` + (r.errors && r.errors.length ? ` · 실패 ${r.errors.join(' / ')}` : '');
     });
     $('#checkUpdateBtn').onclick = async () => {
       const button = $('#checkUpdateBtn'), status = $('#updateStatus');

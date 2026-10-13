@@ -99,6 +99,9 @@ function ES_init(root) {
         var letterbox = new File(root + '/host/letterbox.jsx');
         if (!letterbox.exists) { throw new Error('host/letterbox.jsx를 찾지 못했습니다. 다시 설치해주세요.'); }
         $.evalFile(letterbox);
+        var textBox = new File(root + '/host/textbox.jsx');
+        if (!textBox.exists) { throw new Error('host/textbox.jsx를 찾지 못했습니다. 다시 설치해주세요.'); }
+        $.evalFile(textBox);
         ES_STATE.ready = true;
         return {motions: ESCore.BUILTINS.length, target: ES_targetInfo()};
     });
